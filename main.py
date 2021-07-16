@@ -18,6 +18,8 @@ SYMVOL = ('<', '>', ':', '"', '/', '\\', '|', '?', '*')
 # Функция, которая срабатывает если не подключились к почте или не подключились к базе данных
 def error_and_exit():
     print('---------------------')
+    print(f'Выход через 25 сек...')
+    sleep(10)
     print(f'Выход через 15 сек...')
     sleep(10)
     print(f'Выход через 5 сек...')
@@ -65,12 +67,9 @@ def serach_win_code_in_file(_win_code):
 
 # Функция отправки сообщения пользователю
 def send_message_to_user(email_user):
-    sender = 'testingfor0219@gmail.com'
-    password = 'ghjcnj1818'
-    receiver = email_user
     message = MIMEMultipart()
-    message['From'] = sender
-    message['To'] = receiver
+    message['From'] = LOGIN
+    message['To'] = email_user
     message['Subject'] = 'Re:' + subject_of_mail
     body = '''Отримайте Вашу довідку'''
     message.attach(MIMEText(body, 'plain'))
@@ -81,11 +80,12 @@ def send_message_to_user(email_user):
     encoders.encode_base64(payload)
     payload.add_header('Content-Decomposition', 'attachment', filename=pdfname)
     message.attach(payload)
-    session = smtplib.SMTP('smtp.gmail.com', 587)
+    TYPE_OF_EMAIL = 'smtp.' + LOGIN[LOGIN.find('@')+1:]
+    session = smtplib.SMTP(TYPE_OF_EMAIL, 587)
     session.starttls()
-    session.login(sender, password)
+    session.login(LOGIN, PASSWORD)
     text = message.as_string()
-    session.sendmail(sender, receiver, text)
+    session.sendmail(LOGIN, email_user, text)
     session.quit()
 
 # Считывание данных с базы данных
