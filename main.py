@@ -57,7 +57,6 @@ def serach_win_code_in_file(_win_code):
                     pages.append(page)
 
             win_code_in_file = text[(text.find('номер кузова:')) + 14 :(text.find('номер кузова:')) + 31]
-            
             if _win_code == win_code_in_file : return True
     except FileNotFoundError:
         print(f'''Не удается найти путь к серверу: 
@@ -87,7 +86,6 @@ def send_message_to_user(email_user):
     text = message.as_string()
     session.sendmail(LOGIN, email_user, text)
     session.quit()
-
 # Считывание данных с базы данных
 try:
     file_xlsx = load_workbook(filename = 'data.xlsx')
@@ -99,9 +97,11 @@ try:
     # Имя папки, из которой будут считываться письма, по умолчанию "Входящие"
     NAME_OF_CATALOG_ON_MAIL = sheet.cell(row=3, column=2).value
     # Папка сервера
-    DIR_OF_SERVER = sheet.cell(row=4, column=2).value
+    DIR_OF_SERVER = str(sheet.cell(row=4, column=2).value + '\\')
+    # Папка отработанных данных
+    DIR_OF_SERVER_DONE = str(sheet.cell(row=5, column=2).value + '\\')
     # Время перезагрузки сервера
-    TIME_TO_RELOAD = sheet.cell(row=5, column=2).value
+    TIME_TO_RELOAD = sheet.cell(row=6, column=2).value
     
     file_xlsx.close()
 except FileNotFoundError: 
@@ -170,9 +170,14 @@ while True:
             get_attachments(raw)
             # Если архив не пуст
             if len(myzip.infolist()) != 0:
+                # Убираем в конце названия отправляемого файла имя и фамилию
+                os.rename(filename, filename[:filename.rfind('_')] + '.pdf')
+                filename = filename[:filename.rfind('_')] + '.pdf'
                 # Отправляем сообщение пользователю
                 send_message_to_user(from_user[from_user.find('<') + 1 :from_user.find('>')])
                 print(f'Сообщение успешно обработано от пользователя: {from_user}', strftime('%b, %A, %H:%M:%S'))
+                # Перемещаем файл в папку server_done
+                os.replace(filename, DIR_OF_SERVER_DONE + filename[filename.rfind('\\'):])
                 # Присваиваем сообщению флаг для его дальнейшего удаления (IMAP пометит как удаленное, на почте отправится в архив)
                 con.store(f'{i}', '+FLAGS', '\\Deleted')
                 # Работа с базой данных
