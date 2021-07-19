@@ -1,6 +1,6 @@
 
 import imaplib, smtplib, os, pdfplumber
-from time import sleep, strftime, time
+from time import sleep, strftime
 from openpyxl import load_workbook
 from zipfile import ZipFile
 from email import message_from_bytes
@@ -70,11 +70,18 @@ def send_message_to_user(email_user):
     message['From'] = LOGIN
     message['To'] = email_user
     message['Subject'] = 'Re:' + subject_of_mail
-    body = '''Отримайте Вашу довідку'''
+    if TEXT_MESSAGE:
+        body = TEXT_MESSAGE
+    else:
+        body = '''Отримайте Вашу довідку'''
+
+    name_to_file_on_mail = filename[filename.rfind('\\') + 1 :]
+    print(name_to_file_on_mail)
+
     message.attach(MIMEText(body, 'plain'))
     pdfname = filename
     binary_pdf = open(pdfname, 'rb')
-    payload = MIMEBase('application', 'octate-stream', Name=pdfname)
+    payload = MIMEBase('application', 'octate-stream', Name=name_to_file_on_mail)
     payload.set_payload((binary_pdf).read())
     encoders.encode_base64(payload)
     payload.add_header('Content-Decomposition', 'attachment', filename=pdfname)
@@ -102,6 +109,8 @@ try:
     DIR_OF_SERVER_DONE = str(sheet.cell(row=5, column=2).value + '\\')
     # Время перезагрузки сервера
     TIME_TO_RELOAD = sheet.cell(row=6, column=2).value
+    # Текст сообщения, которое будет отправлено пользователю
+    TEXT_MESSAGE = sheet.cell(row=7, column=2).value
     
     file_xlsx.close()
 except FileNotFoundError: 
@@ -177,7 +186,14 @@ while True:
                 send_message_to_user(from_user[from_user.find('<') + 1 :from_user.find('>')])
                 print(f'Сообщение успешно обработано от пользователя: {from_user}', strftime('%b, %A, %H:%M:%S'))
                 # Перемещаем файл в папку server_done
-                os.replace(filename, DIR_OF_SERVER_DONE + filename[filename.rfind('\\'):])
+                try:
+                    os.replace(filename, DIR_OF_SERVER_DONE + filename[filename.rfind('\\'):])
+                except FileNotFoundError:
+                    print(f'''Не удается найти путь к папке: 
+{DIR_OF_SERVER_DONE}  
+Файл не был перемещен
+Проверьте данные и перезапустите программу.''')
+                    continue
                 # Присваиваем сообщению флаг для его дальнейшего удаления (IMAP пометит как удаленное, на почте отправится в архив)
                 con.store(f'{i}', '+FLAGS', '\\Deleted')
                 # Работа с базой данных
@@ -190,6 +206,7 @@ while True:
                     sleep(0.1)                    
                     sheet.cell(row=count_of_xlsx, column=2).value = win_code
                     sleep(0.1)
+                    sheet.cell(row=count_of_xlsx, column=3).value = strftime('%d/%m/%Y')
                     file_xlsx.save(filename='data.xlsx')
                     file_xlsx.close()
                     count_of_xlsx += 1
