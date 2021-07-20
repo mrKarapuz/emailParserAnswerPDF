@@ -1,5 +1,6 @@
 
-import imaplib, smtplib, os, pdfplumber
+from aiogram import Bot
+import imaplib, smtplib, os, pdfplumber, MySQLdb, requests
 from time import sleep, strftime
 from openpyxl import load_workbook
 from zipfile import ZipFile
@@ -15,6 +16,15 @@ print('СЕРВЕР ЗАПУЩЕН')
 
 SYMVOL = ('<', '>', ':', '"', '/', '\\', '|', '?', '*')
 
+# Функция отправки сообщения в группу в телеграме
+def telegram_bot_send():
+    token = '1901007184:AAHZ4DCUsqD9MRCzAdLYCgrHscz6erCy4cU'
+    bot = Bot(token=token)
+    chat_id = '-1001572207430'
+    text = win_code
+    url = f'https://api.telegram.org/bot{token}/sendMessage?chat_id={chat_id}&parse_mode=Markdown&text={text}'
+    requests.get(url)
+
 # Функция, которая срабатывает если не подключились к почте или не подключились к базе данных
 def error_and_exit():
     print('---------------------')
@@ -29,35 +39,42 @@ def error_and_exit():
 # Функция загрузки файлов
 def get_attachments(msg):
     global myzip
-    with ZipFile(zip_dir +'.zip', 'w') as myzip:
-        for part in msg.walk():
-            if part.get_content_maintype()=='multipart':
-                continue
-            if part.get('Content-Disposition') is None:
-                continue
-            fileName = part.get_filename()
-            if bool(fileName):
-                filePath = os.path.join(str(make_header(decode_header(fileName))))
-                with open(filePath,'wb') as f:
-                    f.write(part.get_payload(decode=True))
-                    myzip.write(filePath)
-                os.remove(filePath)
+    try:
+        with ZipFile(zip_dir +'.zip', 'w') as myzip:
+            for part in msg.walk():
+                if part.get_content_maintype()=='multipart':
+                    continue
+                if part.get('Content-Disposition') is None:
+                    continue
+                fileName = part.get_filename()
+                if bool(fileName):
+                    filePath = os.path.join(str(make_header(decode_header(fileName))))
+                    with open(filePath,'wb') as f:
+                        f.write(part.get_payload(decode=True))
+                        myzip.write(filePath)
+                    os.remove(filePath)
+    except FileNotFoundError:
+            print(f'''Не удается найти папку для загрузки отработанных файлов.
+Проверьте данные и перезапустите программу.''')
+            error_and_exit()
 
 # Функция поиска Win кода на сервере
 def serach_win_code_in_file(_win_code):
     global filename
     try:
         for elem in os.listdir(DIR_OF_SERVER):
-            filename = DIR_OF_SERVER + elem
-            text = ''
-            pages = []
-            with pdfplumber.open(filename) as pdf:
-                for i, page in enumerate(pdf.pages):
-                    text = text+str(page.extract_text())
-                    pages.append(page)
+            if len(elem) > 20:
+                filename = DIR_OF_SERVER + elem
+                text = ''
+                pages = []
+                with pdfplumber.open(filename) as pdf:
+                    for i, page in enumerate(pdf.pages):
+                        text = text+str(page.extract_text())
+                        pages.append(page)
 
-            win_code_in_file = text[(text.find('номер кузова:')) + 14 :(text.find('номер кузова:')) + 31]
-            if _win_code == win_code_in_file : return True
+                win_code_in_file = text[(text.find('номер кузова:')) + 14 :(text.find('номер кузова:')) + 31]
+                if _win_code == win_code_in_file : return True
+            else: continue
     except FileNotFoundError:
         print(f'''Не удается найти путь к серверу: 
 {DIR_OF_SERVER}  
@@ -76,8 +93,6 @@ def send_message_to_user(email_user):
         body = '''Отримайте Вашу довідку'''
 
     name_to_file_on_mail = filename[filename.rfind('\\') + 1 :]
-    print(name_to_file_on_mail)
-
     message.attach(MIMEText(body, 'plain'))
     pdfname = filename
     binary_pdf = open(pdfname, 'rb')
@@ -107,19 +122,18 @@ try:
     DIR_OF_SERVER = str(sheet.cell(row=4, column=2).value + '\\')
     # Папка отработанных данных
     DIR_OF_SERVER_DONE = str(sheet.cell(row=5, column=2).value + '\\')
+    # Путь к папке сохранения архивов
+    ATTACHMENT_DIR = str(sheet.cell(row=6, column=2).value + '\\')
     # Время перезагрузки сервера
-    TIME_TO_RELOAD = sheet.cell(row=6, column=2).value
+    TIME_TO_RELOAD = sheet.cell(row=7, column=2).value
     # Текст сообщения, которое будет отправлено пользователю
-    TEXT_MESSAGE = sheet.cell(row=7, column=2).value
+    TEXT_MESSAGE = sheet.cell(row=8, column=2).value
     
     file_xlsx.close()
 except FileNotFoundError: 
     print(f'''Не удается найти файл базы данных, убедитесь что файл называется "data.xlsx" и находится в одной папке с файлом программы
 Проверьте данные и перезапустите программу.''')
     error_and_exit()
-
-# Папка загрузки архивов
-attachment_dir = str(Path.home() / "Downloads")
 
 # Подключение к почте
 print(f'Подключение к почтовому ящику {LOGIN} ...')
@@ -140,8 +154,9 @@ if not type(TIME_TO_RELOAD) == int:
     TIME_TO_RELOAD = 30
 print(f'''
 Успешно подключено к почтовому ящику {LOGIN}
-Папка загрузки архивов: {attachment_dir}
+Папка загрузки архивов: {ATTACHMENT_DIR}
 Путь к серверу: {DIR_OF_SERVER}
+Путь к отработанным данным: {DIR_OF_SERVER_DONE}
 Интервал автоматической перезагрузки: {TIME_TO_RELOAD} сек.
 Время: {strftime('%H:%M:%S')}
 ''')
@@ -167,7 +182,9 @@ while True:
             if elem in subject_of_mail:
                 subject_of_mail = subject_of_mail.replace(elem, '')
         # Объявляем название архива
-        zip_dir = os.path.join(attachment_dir, str(subject_of_mail))
+        
+            zip_dir = os.path.join(ATTACHMENT_DIR, str(subject_of_mail))
+            
         # Находим WIN-code машины в теме письма
         win_code = False
         for elem in subject_of_mail.split(' '):
@@ -194,26 +211,21 @@ while True:
 Файл не был перемещен
 Проверьте данные и перезапустите программу.''')
                     continue
+                # Отправляем сообщение в группу телеграм
+                telegram_bot_send()
                 # Присваиваем сообщению флаг для его дальнейшего удаления (IMAP пометит как удаленное, на почте отправится в архив)
                 con.store(f'{i}', '+FLAGS', '\\Deleted')
                 # Работа с базой данных
-                try:
-                    file_xlsx = load_workbook(filename = 'data.xlsx')
-                    sheet = file_xlsx['data']
-                    while sheet.cell(row=count_of_xlsx, column=1).value is not None:
-                        count_of_xlsx += 1
-                    sheet.cell(row=count_of_xlsx, column=1).value = from_user[from_user.find('<') + 1 :from_user.find('>')]
-                    sleep(0.1)                    
-                    sheet.cell(row=count_of_xlsx, column=2).value = win_code
-                    sleep(0.1)
-                    sheet.cell(row=count_of_xlsx, column=3).value = strftime('%d/%m/%Y')
-                    file_xlsx.save(filename='data.xlsx')
-                    file_xlsx.close()
-                    count_of_xlsx += 1
-                except PermissionError:
-                    print('---------------------------------------------------------------------------------')
-                    print('Ошибка записи в базу данных так как во время записи файл был открыт пользователем')
-                    continue
+                db = MySQLdb.connect(host="176.111.49.48",    
+                     user="zkdqsgeo_euro",        
+                     passwd="M8s4J5j2",     
+                     db="zkdqsgeo_euro")
+                cur = db.cursor()
+                Date = strftime('%Y-%m-%d')
+                Email = from_user[from_user.find('<') + 1 :from_user.find('>')]
+                cur.execute(f'INSERT INTO basa (date, email, win_code) VALUES(%s, %s, %s)', (Date, Email, win_code))
+                db.commit()
+                db.close()
             else:
                 os.remove(zip_dir + '.zip')
     con.expunge()        
