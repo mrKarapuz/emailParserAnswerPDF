@@ -18,9 +18,9 @@ SYMVOL = ('<', '>', ':', '"', '/', '\\', '|', '?', '*')
 
 # Функция отправки сообщения в группу в телеграме
 def telegram_bot_send():
-    token = '1901007184:AAHZ4DCUsqD9MRCzAdLYCgrHscz6erCy4cU'
+    token = 'TOKEN'
     bot = Bot(token=token)
-    chat_id = '-1001572207430'
+    chat_id = 'CHAT_ID'
     text = win_code
     url = f'https://api.telegram.org/bot{token}/sendMessage?chat_id={chat_id}&parse_mode=Markdown&text={text}'
     requests.get(url)
