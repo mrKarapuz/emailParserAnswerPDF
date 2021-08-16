@@ -2,7 +2,6 @@ import ssl
 from MySQLdb._exceptions import OperationalError
 from aiogram import Bot
 import imaplib, smtplib, os, pdfplumber, MySQLdb, requests, shutil
-from pdfminer.pdfparser import PDFSyntaxError
 from time import sleep, strftime
 from zipfile import ZipFile
 from email import message_from_bytes
@@ -20,9 +19,9 @@ SYMVOL = ('<', '>', ':', '"', '/', '\\', '|', '?', '*', ',')
 
 # Функция отправки сообщения в группу в телеграме
 def telegram_bot_send():
-    token = '1901007184:AAHZ4DCUsqD9MRCzAdLYCgrHscz6erCy4cU'
+    token = ''
     bot = Bot(token=token)
-    chat_id = '-1001572207430'
+    chat_id = ''
     text = win_code
     url = f'https://api.telegram.org/bot{token}/sendMessage?chat_id={chat_id}&parse_mode=Markdown&text={text}'
     requests.get(url)
@@ -156,9 +155,9 @@ def connection_mail():
     print(strftime("%H:%M:%S"))
 
 # Логин электронной почты
-LOGIN = 'spravkieuro@gmail.com'
+LOGIN = ''
 # Пароль электронной почты
-PASSWORD = 'hj32l12j480i'
+PASSWORD = ''
 # Имя папки, из которой будут считываться письма, по умолчанию "Входящие"
 NAME_OF_CATALOG_ON_MAIL = 'inbox'
 # Папка сервера
@@ -227,10 +226,10 @@ def main_function():
         sleep(60)
         return 0
     # Подключение к базе данных
-    db = MySQLdb.connect(host="176.111.49.48",    
-                        user="zkdqsgeo_euro",        
-                        passwd="M8s4J5j2",     
-                        db="zkdqsgeo_euro")
+    db = MySQLdb.connect(host="",    
+                        user="",        
+                        passwd="",     
+                        db="")
     cur = db.cursor()
     # Количество необработанных сообщений на почте
     connection_mail()
